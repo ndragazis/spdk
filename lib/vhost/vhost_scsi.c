@@ -54,6 +54,12 @@
 					(1ULL << VIRTIO_SCSI_F_CHANGE ) | \
 					(1ULL << VIRTIO_SCSI_F_T10_PI ))
 
+#define VIRTIO_SCSI_FEATURES            ((1ULL << VIRTIO_F_NOTIFY_ON_EMPTY) | \
+                                        (1ULL << VIRTIO_SCSI_F_INOUT) | \
+                                        (1ULL << VIRTIO_SCSI_F_HOTPLUG) | \
+                                        (1ULL << VIRTIO_SCSI_F_CHANGE ) | \
+                                        (1ULL << VIRTIO_SCSI_F_T10_PI ))
+
 /* Features that are specified in VIRTIO SCSI but currently not supported:
  * - Live migration not supported yet
  * - T10 PI
@@ -114,7 +120,7 @@ static void spdk_vhost_scsi_write_config_json(struct spdk_vhost_dev *vdev,
 static int spdk_vhost_scsi_dev_remove(struct spdk_vhost_dev *vdev);
 
 const struct spdk_vhost_dev_backend spdk_vhost_scsi_device_backend = {
-	.virtio_features = SPDK_VHOST_SCSI_FEATURES,
+	.virtio_features = VIRTIO_SCSI_FEATURES,
 	.disabled_features = SPDK_VHOST_SCSI_DISABLED_FEATURES,
 	.start_device =  spdk_vhost_scsi_start,
 	.stop_device = spdk_vhost_scsi_stop,

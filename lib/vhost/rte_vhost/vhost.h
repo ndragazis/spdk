@@ -34,6 +34,7 @@
 #ifndef _VHOST_NET_CDEV_H_
 #define _VHOST_NET_CDEV_H_
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/queue.h>
@@ -90,10 +91,13 @@ struct vhost_virtqueue {
 	struct vring_avail	*avail;
 	struct vring_used	*used;
 	uint32_t		size;
+	uint32_t		vring_idx;
 
 	uint16_t		last_avail_idx;
 	uint16_t		last_used_idx;
-#define VIRTIO_INVALID_EVENTFD		(-1)
+	/* Last used index we notify to front end. */
+	uint16_t		signalled_used;
+#define VIRTIO_INVALID_EVENTFD			(-1)
 #define VIRTIO_UNINITIALIZED_EVENTFD	(-2)
 
 	/* Backend value to determine if device should started/stopped */
@@ -103,6 +107,7 @@ struct vhost_virtqueue {
 	/* Currently unused as polling mode is enabled */
 	int			kickfd;
 	int			enabled;
+	int			access_ok;
 
 	/* Physical address of used ring, for logging */
 	uint64_t		log_guest_addr;
@@ -167,9 +172,152 @@ struct guest_page {
 	uint64_t size;
 };
 
+struct virtio_net;
+struct vhost_user_socket;
+struct VhostUserMsg;
+
+/**
+ * A structure containing function pointers for transport-specific operations.
+ */
+struct vhost_transport_ops {
+        /** Size of struct vhost_user_socket-derived per-socket state */
+        size_t socket_size;
+
+        /** Size of struct virtio_net-derived per-device state */
+        size_t device_size;
+
+        /**
+         * Initialize a vhost-user socket that is being created by
+         * rte_vhost_driver_register().  This function checks that the flags
+         * are valid but does not establish a vhost-user connection.
+         *
+         * @param vsocket
+         *  new socket
+         * @param flags
+         *  flags argument from rte_vhost_driver_register()
+         * @return
+         *  0 on success, -1 on failure
+         */
+        int (*socket_init)(struct vhost_user_socket *vsocket, uint64_t flags);
+
+        /**
+         * Free resources associated with a socket, including any established
+         * connections.  This function calls vhost_destroy_device() to destroy
+         * established connections for this socket.
+         *
+         * @param vsocket
+         *  vhost socket
+         */
+        void (*socket_cleanup)(struct vhost_user_socket *vsocket);
+
+        /**
+         * Start establishing vhost-user connections.  This function is
+         * asynchronous and connections may be established after it has
+         * returned.  Call vhost_user_add_connection() to register new
+         * connections.
+         *
+         * @param vsocket
+         *  vhost socket
+         * @return
+         *  0 on success, -1 on failure
+         */
+        int (*socket_start)(struct vhost_user_socket *vsocket);
+
+        /**
+        * Free resources associated with this device.
+        *
+        * @param dev
+        *  vhost device
+        * @param destroy
+        *  0 on device reset, 1 on full cleanup.
+        */
+        void (*cleanup_device)(struct virtio_net *dev, int destroy);
+
+        /**
+         * Notify the guest that used descriptors have been added to the vring.
+         * The VRING_AVAIL_F_NO_INTERRUPT flag has already been checked so this
+         * function just needs to perform the notification.
+         *
+         * @param dev
+         *  vhost device
+         * @param vq
+         *  vhost virtqueue
+         * @return
+         *  0 on success, -1 on failure
+         */
+        int (*vring_call)(struct virtio_net *dev, struct vhost_virtqueue *vq);
+
+        /**
+         * Send a reply to the master.
+         *
+         * @param dev
+         *  vhost device
+         * @param reply
+         *  reply message
+         * @return
+         *  0 on success, -1 on failure
+         */
+        int (*send_reply)(struct virtio_net *dev, struct VhostUserMsg *reply);
+
+        /**
+         * Send a slave request to the master.
+         *
+         * @param dev
+         *  vhost device
+         * @param req
+         *  request message
+         * @return
+         *  0 on success, -1 on failure
+         */
+        int (*send_slave_req)(struct virtio_net *dev,
+                              struct VhostUserMsg *req);
+
+        /**
+         * Process VHOST_USER_SET_SLAVE_REQ_FD message.  After this function
+         * succeeds send_slave_req() may be called to submit requests to the
+         * master.
+         *
+         * @param dev
+         *  vhost device
+         * @param msg
+         *  message
+         * @return
+         *  0 on success, -1 on failure
+         */
+        int (*set_slave_req_fd)(struct virtio_net *dev,
+                                struct VhostUserMsg *msg);
+
+        /**
+         * Map memory table regions in dev->mem->regions[].
+         *
+         * @param dev
+         *  vhost device
+         */
+        int (*map_mem_regions)(struct virtio_net *dev);
+
+        /**
+         * Unmap memory table regions in dev->mem->regions[] and free any
+         * resources, such as file descriptors.
+         *
+         * @param dev
+         *  vhost device
+         */
+        void (*unmap_mem_regions)(struct virtio_net *dev);
+};
+
+/** The traditional AF_UNIX vhost-user protocol transport. */
+extern const struct vhost_transport_ops af_unix_trans_ops;
+
+/** The virtio-vhost-user PCI vhost-user protocol transport. */
+extern const struct vhost_transport_ops virtio_vhost_user_trans_ops;
+
 /**
  * Device structure contains all configuration information relating
  * to the device.
+ * Transport-specific per-device state can be kept by embedding this struct at
+ * the beginning of a transport-specific struct.  Set
+ * vhost_transport_ops->device_size to the size of the transport-specific
+ * struct.
  */
 struct virtio_net {
 	/* Frontend (QEMU) memory and memory region information */
@@ -195,6 +343,7 @@ struct virtio_net {
 	uint16_t		mtu;
 
 	struct vhost_device_ops const *notify_ops;
+	struct vhost_transport_ops const *trans_ops;
 
 	uint32_t		nr_guest_pages;
 	uint32_t		max_guest_pages;
@@ -204,6 +353,34 @@ struct virtio_net {
 	int                     mem_table_fds[VHOST_MEMORY_MAX_NREGIONS];
 } __rte_cache_aligned;
 
+/*
+ * Every time rte_vhost_driver_register() is invoked, an associated
+ * vhost_user_socket struct will be created.
+ *
+ * Transport-specific per-socket state can be kept by embedding this struct at
+ * the beginning of a transport-specific struct.  Set
+ * vhost_transport_ops->socket_size to the size of the transport-specific
+ * struct.
+ */
+struct vhost_user_socket {
+        char *path;
+        bool is_server;
+        bool reconnect;
+        bool dequeue_zero_copy;
+
+        /*
+         * The "supported_features" indicates the feature bits the
+         * vhost driver supports. The "features" indicates the feature
+         * bits after the rte_vhost_driver_features_disable/enable().
+         * It is also the final feature bits used for vhost-user
+         * features negotiation.
+         */
+        uint64_t supported_features;
+        uint64_t features;
+
+        struct vhost_device_ops const *notify_ops;
+        struct vhost_transport_ops const *trans_ops;
+};
 
 #define VHOST_LOG_PAGE	4096
 
@@ -299,7 +476,8 @@ gpa_to_hpa(struct virtio_net *dev, uint64_t gpa, uint64_t size)
 
 struct virtio_net *get_device(int vid);
 
-int vhost_new_device(uint64_t features);
+struct virtio_net *
+vhost_new_device(const struct vhost_transport_ops *, uint64_t features);
 void cleanup_device(struct virtio_net *dev, int destroy);
 void reset_device(struct virtio_net *dev);
 void vhost_destroy_device(int);

@@ -171,12 +171,15 @@ typedef struct VhostUserMsg {
 /* The version of the protocol we support */
 #define VHOST_USER_VERSION    0x1
 
+/*vhost.h*/
+struct virtio_net;
 
 /* vhost_user.c */
-int vhost_user_msg_handler(int vid, int fd);
+int vhost_user_msg_handler(int vid, struct VhostUserMsg *);
+void add_guest_pages(struct virtio_net *, struct rte_vhost_mem_region *, uint64_t);
 
 /* socket.c */
 int read_fd_message(int sockfd, char *buf, int buflen, int *fds, int fd_num);
-int send_fd_message(int sockfd, char *buf, int buflen, int *fds, int fd_num);
+int send_fd_message(int sockfd, void *buf, int buflen, int *fds, int fd_num);
 
 #endif

@@ -53,12 +53,13 @@
 #include "vhost_user.h"
 
 
-TAILQ_HEAD(vhost_user_connection_list, vhost_user_connection);
+//TAILQ_HEAD(vhost_user_connection_list, vhost_user_connection);
 
 /*
  * Every time rte_vhost_driver_register() is invoked, an associated
  * vhost_user_socket struct will be created.
  */
+/*
 struct vhost_user_socket {
 	struct vhost_user_connection_list conn_list;
 	pthread_mutex_t conn_mutex;
@@ -68,7 +69,7 @@ struct vhost_user_socket {
 	bool is_server;
 	bool reconnect;
 	bool dequeue_zero_copy;
-
+*/
 	/*
 	 * The "supported_features" indicates the feature bits the
 	 * vhost driver supports. The "features" indicates the feature
@@ -76,12 +77,15 @@ struct vhost_user_socket {
 	 * It is also the final feature bits used for vhost-user
 	 * features negotiation.
 	 */
+/*
 	uint64_t supported_features;
 	uint64_t features;
 
 	struct vhost_device_ops const *notify_ops;
+        struct vhost_transport_ops const *trans_ops;
 };
-
+*/
+/*
 struct vhost_user_connection {
 	struct vhost_user_socket *vsocket;
 	int connfd;
@@ -89,28 +93,28 @@ struct vhost_user_connection {
 
 	TAILQ_ENTRY(vhost_user_connection) next;
 };
-
+*/
 #define MAX_VHOST_SOCKET 1024
 struct vhost_user {
 	struct vhost_user_socket *vsockets[MAX_VHOST_SOCKET];
-	struct fdset fdset;
+	//struct fdset fdset;
 	int vsocket_cnt;
 	pthread_mutex_t mutex;
 };
 
-#define MAX_VIRTIO_BACKLOG 128
-
+//#define MAX_VIRTIO_BACKLOG 128
+/*
 static void vhost_user_server_new_connection(int fd, void *data, int *remove);
 static void vhost_user_read_cb(int fd, void *dat, int *remove);
 static int create_unix_socket(struct vhost_user_socket *vsocket);
 static int vhost_user_start_client(struct vhost_user_socket *vsocket);
-
+*/
 static struct vhost_user vhost_user = {
-	.fdset = {
-		.fd = { [0 ... MAX_FDS - 1] = {-1, NULL, NULL, NULL, 0} },
-		.fd_mutex = PTHREAD_MUTEX_INITIALIZER,
-		.num = 0
-	},
+//	.fdset = {
+//		.fd = { [0 ... MAX_FDS - 1] = {-1, NULL, NULL, NULL, 0} },
+//		.fd_mutex = PTHREAD_MUTEX_INITIALIZER,
+//		.num = 0
+//	},
 	.vsocket_cnt = 0,
 	.mutex = PTHREAD_MUTEX_INITIALIZER,
 };
@@ -159,7 +163,7 @@ read_fd_message(int sockfd, char *buf, int buflen, int *fds, int fd_num)
 }
 
 int
-send_fd_message(int sockfd, char *buf, int buflen, int *fds, int fd_num)
+send_fd_message(int sockfd, void *buf, int buflen, int *fds, int fd_num)
 {
 
 	struct iovec iov;
@@ -206,6 +210,7 @@ send_fd_message(int sockfd, char *buf, int buflen, int *fds, int fd_num)
 	return ret;
 }
 
+/*
 static void
 vhost_user_add_connection(int fd, struct vhost_user_socket *vsocket)
 {
@@ -268,8 +273,9 @@ err:
 	free(conn);
 	close(fd);
 }
-
+*/
 /* call back when there is new vhost-user connection from client  */
+/*
 static void
 vhost_user_server_new_connection(int fd, void *dat, int *remove __rte_unused)
 {
@@ -282,7 +288,8 @@ vhost_user_server_new_connection(int fd, void *dat, int *remove __rte_unused)
 	RTE_LOG(INFO, VHOST_CONFIG, "new vhost user connection is %d\n", fd);
 	vhost_user_add_connection(fd, vsocket);
 }
-
+*/
+/*
 static void
 vhost_user_read_cb(int connfd, void *dat, int *remove)
 {
@@ -311,7 +318,8 @@ vhost_user_read_cb(int connfd, void *dat, int *remove)
 		}
 	}
 }
-
+*/
+/*
 static int
 create_unix_socket(struct vhost_user_socket *vsocket)
 {
@@ -340,7 +348,8 @@ create_unix_socket(struct vhost_user_socket *vsocket)
 	vsocket->socket_fd = fd;
 	return 0;
 }
-
+*/
+/*
 static int
 vhost_user_start_server(struct vhost_user_socket *vsocket)
 {
@@ -376,7 +385,8 @@ err:
 	close(fd);
 	return -1;
 }
-
+*/
+/*
 struct vhost_user_reconnect {
 	struct sockaddr_un un;
 	int fd;
@@ -393,7 +403,8 @@ struct vhost_user_reconnect_list {
 
 static struct vhost_user_reconnect_list reconn_list;
 static pthread_t reconn_tid;
-
+*/
+/*
 static int
 vhost_user_connect_nonblock(int fd, struct sockaddr *un, size_t sz)
 {
@@ -416,7 +427,8 @@ vhost_user_connect_nonblock(int fd, struct sockaddr *un, size_t sz)
 	}
 	return 0;
 }
-
+*/
+/*
 static void *
 vhost_user_client_reconnect(void *arg __rte_unused)
 {
@@ -425,11 +437,12 @@ vhost_user_client_reconnect(void *arg __rte_unused)
 
 	while (1) {
 		pthread_mutex_lock(&reconn_list.mutex);
-
+*/
 		/*
 		 * An equal implementation of TAILQ_FOREACH_SAFE,
 		 * which does not exist on all platforms.
 		 */
+/*
 		for (reconn = TAILQ_FIRST(&reconn_list.head);
 		     reconn != NULL; reconn = next) {
 			next = TAILQ_NEXT(reconn, next);
@@ -461,7 +474,8 @@ remove_fd:
 
 	return NULL;
 }
-
+*/
+/*
 static int
 vhost_user_reconnect_init(void)
 {
@@ -477,7 +491,8 @@ vhost_user_reconnect_init(void)
 
 	return ret;
 }
-
+*/
+/*
 static int
 vhost_user_start_client(struct vhost_user_socket *vsocket)
 {
@@ -519,7 +534,7 @@ vhost_user_start_client(struct vhost_user_socket *vsocket)
 
 	return 0;
 }
-
+*/
 static struct vhost_user_socket *
 find_vhost_user_socket(const char *path)
 {
@@ -618,6 +633,10 @@ rte_vhost_driver_register(const char *path, uint64_t flags)
 {
 	int ret = -1;
 	struct vhost_user_socket *vsocket;
+	const struct vhost_transport_ops *trans_ops = &af_unix_trans_ops;
+
+	if (flags & RTE_VHOST_USER_VIRTIO_TRANSPORT)
+		trans_ops = &virtio_vhost_user_trans_ops;
 
 	if (!path)
 		return -1;
@@ -630,17 +649,20 @@ rte_vhost_driver_register(const char *path, uint64_t flags)
 		goto out;
 	}
 
-	vsocket = malloc(sizeof(struct vhost_user_socket));
+	vsocket = malloc(trans_ops->socket_size);
 	if (!vsocket)
 		goto out;
-	memset(vsocket, 0, sizeof(struct vhost_user_socket));
+	memset(vsocket, 0, trans_ops->socket_size);
+	vsocket->trans_ops = trans_ops;
 	vsocket->path = strdup(path);
 	if (!vsocket->path) {
+		RTE_LOG(ERR, VHOST_CONFIG,
+				"error: failed to copy socket path string\n");
 		free(vsocket);
 		goto out;
 	}
-	TAILQ_INIT(&vsocket->conn_list);
-	pthread_mutex_init(&vsocket->conn_mutex, NULL);
+//	TAILQ_INIT(&vsocket->conn_list);
+//	pthread_mutex_init(&vsocket->conn_mutex, NULL);
 	vsocket->dequeue_zero_copy = flags & RTE_VHOST_USER_DEQUEUE_ZERO_COPY;
 
 	/*
@@ -660,31 +682,35 @@ rte_vhost_driver_register(const char *path, uint64_t flags)
 
 	if ((flags & RTE_VHOST_USER_CLIENT) != 0) {
 		vsocket->reconnect = !(flags & RTE_VHOST_USER_NO_RECONNECT);
-		if (vsocket->reconnect && reconn_tid == 0) {
-			if (vhost_user_reconnect_init() < 0) {
-				free(vsocket->path);
-				free(vsocket);
-				goto out;
-			}
-		}
+//		if (vsocket->reconnect && reconn_tid == 0) {
+//			if (vhost_user_reconnect_init() < 0) {
+//				free(vsocket->path);
+//				free(vsocket);
+//				goto out;
+//			}
+//		}
 	} else {
 		vsocket->is_server = true;
 	}
-	ret = create_unix_socket(vsocket);
+	ret = trans_ops->socket_init(vsocket, flags);
 	if (ret < 0) {
-		free(vsocket->path);
-		free(vsocket);
-		goto out;
+		goto out_free;
 	}
 
 	vhost_user.vsockets[vhost_user.vsocket_cnt++] = vsocket;
 
+	pthread_mutex_unlock(&vhost_user.mutex);
+	return ret;
+
+out_free:
+	free(vsocket->path);
+	free(vsocket);
 out:
 	pthread_mutex_unlock(&vhost_user.mutex);
 
 	return ret;
 }
-
+/*
 static bool
 vhost_user_remove_reconnect(struct vhost_user_socket *vsocket)
 {
@@ -708,7 +734,7 @@ vhost_user_remove_reconnect(struct vhost_user_socket *vsocket)
 	pthread_mutex_unlock(&reconn_list.mutex);
 	return found;
 }
-
+*/
 /**
  * Unregister the specified vhost socket
  */
@@ -717,7 +743,7 @@ rte_vhost_driver_unregister(const char *path)
 {
 	int i;
 	int count;
-	struct vhost_user_connection *conn;
+	//struct vhost_user_connection *conn;
 
 	pthread_mutex_lock(&vhost_user.mutex);
 
@@ -725,26 +751,27 @@ rte_vhost_driver_unregister(const char *path)
 		struct vhost_user_socket *vsocket = vhost_user.vsockets[i];
 
 		if (!strcmp(vsocket->path, path)) {
-			if (vsocket->is_server) {
-				fdset_del(&vhost_user.fdset, vsocket->socket_fd);
-				close(vsocket->socket_fd);
-				unlink(path);
-			} else if (vsocket->reconnect) {
-				vhost_user_remove_reconnect(vsocket);
-			}
+//			if (vsocket->is_server) {
+//				fdset_del(&vhost_user.fdset, vsocket->socket_fd);
+//				close(vsocket->socket_fd);
+//				unlink(path);
+//			} else if (vsocket->reconnect) {
+//				vhost_user_remove_reconnect(vsocket);
+//			}
+//
+//			pthread_mutex_lock(&vsocket->conn_mutex);
+//			TAILQ_FOREACH(conn, &vsocket->conn_list, next) {
+//				close(conn->connfd);
+//			}
+//			pthread_mutex_unlock(&vsocket->conn_mutex);
+//
+//			do {
+//				pthread_mutex_lock(&vsocket->conn_mutex);
+//				conn = TAILQ_FIRST(&vsocket->conn_list);
+//				pthread_mutex_unlock(&vsocket->conn_mutex);
+//			} while (conn != NULL);
 
-			pthread_mutex_lock(&vsocket->conn_mutex);
-			TAILQ_FOREACH(conn, &vsocket->conn_list, next) {
-				close(conn->connfd);
-			}
-			pthread_mutex_unlock(&vsocket->conn_mutex);
-
-			do {
-				pthread_mutex_lock(&vsocket->conn_mutex);
-				conn = TAILQ_FIRST(&vsocket->conn_list);
-				pthread_mutex_unlock(&vsocket->conn_mutex);
-			} while (conn != NULL);
-
+			vsocket->trans_ops->socket_cleanup(vsocket);
 			free(vsocket->path);
 			free(vsocket);
 
@@ -795,7 +822,7 @@ int
 rte_vhost_driver_start(const char *path)
 {
 	struct vhost_user_socket *vsocket;
-	static pthread_t fdset_tid;
+	//static pthread_t fdset_tid;
 
 	pthread_mutex_lock(&vhost_user.mutex);
 	vsocket = find_vhost_user_socket(path);
@@ -804,16 +831,18 @@ rte_vhost_driver_start(const char *path)
 	if (!vsocket)
 		return -1;
 
-	if (fdset_tid == 0) {
-		int ret = pthread_create(&fdset_tid, NULL, fdset_event_dispatch,
-				     &vhost_user.fdset);
-		if (ret < 0)
-			RTE_LOG(ERR, VHOST_CONFIG,
-				"failed to create fdset handling thread");
-	}
+//	if (fdset_tid == 0) {
+//		int ret = pthread_create(&fdset_tid, NULL, fdset_event_dispatch,
+//				     &vhost_user.fdset);
+//		if (ret < 0)
+//			RTE_LOG(ERR, VHOST_CONFIG,
+//				"failed to create fdset handling thread");
+//	}
+//
+//	if (vsocket->is_server)
+//		return vhost_user_start_server(vsocket);
+//	else
+//		return vhost_user_start_client(vsocket);
 
-	if (vsocket->is_server)
-		return vhost_user_start_server(vsocket);
-	else
-		return vhost_user_start_client(vsocket);
+	return vsocket->trans_ops->socket_start(vsocket);
 }

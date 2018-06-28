@@ -86,6 +86,8 @@ cleanup_device(struct virtio_net *dev, int destroy)
 
 	for (i = 0; i < dev->nr_vring; i++)
 		cleanup_vq(dev->virtqueue[i], destroy);
+
+	dev->trans_ops->cleanup_device(dev, destroy);
 }
 
 /*
@@ -180,8 +182,9 @@ reset_device(struct virtio_net *dev)
  * Invoked when there is a new vhost-user connection established (when
  * there is a new virtio device being attached).
  */
-int
-vhost_new_device(uint64_t features)
+struct virtio_net *
+vhost_new_device(const struct vhost_transport_ops *trans_ops, 
+				uint64_t features)
 {
 	struct virtio_net *dev;
 	int i;
@@ -190,7 +193,7 @@ vhost_new_device(uint64_t features)
 	if (dev == NULL) {
 		RTE_LOG(ERR, VHOST_CONFIG,
 			"Failed to allocate memory for new dev.\n");
-		return -1;
+		return NULL;
 	}
 
 	for (i = 0; i < MAX_VHOST_DEVICE; i++) {
@@ -201,14 +204,15 @@ vhost_new_device(uint64_t features)
 		RTE_LOG(ERR, VHOST_CONFIG,
 			"Failed to find a free slot for new device.\n");
 		rte_free(dev);
-		return -1;
+		return NULL;
 	}
 
 	vhost_devices[i] = dev;
 	dev->vid = i;
 	dev->features = features;
+	dev->trans_ops = trans_ops;
 
-	return i;
+	return dev;
 }
 
 /*
@@ -247,8 +251,10 @@ vhost_set_ifname(int vid, const char *if_name, unsigned int if_len)
 	len = if_len > sizeof(dev->ifname) ?
 		sizeof(dev->ifname) : if_len;
 
-	strncpy(dev->ifname, if_name, len);
-	dev->ifname[sizeof(dev->ifname) - 1] = '\0';
+	strncpy(dev->ifname, if_name, len+1);
+	//dev->ifname[sizeof(dev->ifname) - 1] = '\0';
+ 	//debugging
+	printf("vhost_set_ifname: vsocket->path=%s dev->ifname=%s\n", if_name, dev->ifname);
 }
 
 void

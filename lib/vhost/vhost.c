@@ -41,6 +41,7 @@
 
 #include "spdk/vhost.h"
 #include "vhost_internal.h"
+#include "rte_vhost.h"
 
 static uint32_t *g_num_ctrlrs;
 
@@ -594,6 +595,20 @@ spdk_vhost_dev_find(const char *ctrlr_name)
 	return NULL;
 }
 
+struct spdk_vhost_dev *
+spdk_vhost_dev_find_by_path(const char *ctrlr_name)
+{
+        struct spdk_vhost_dev *vdev;
+
+        TAILQ_FOREACH(vdev, &g_spdk_vhost_devices, tailq) {
+                if (strcmp(vdev->path, ctrlr_name) == 0) {
+                        return vdev;
+                }
+        }
+
+        return NULL;
+}
+
 static int
 spdk_vhost_parse_core_mask(const char *mask, struct spdk_cpuset *cpumask)
 {
@@ -705,23 +720,23 @@ spdk_vhost_dev_register(struct spdk_vhost_dev *vdev, const char *name, const cha
 		}
 	}
 
-	if (rte_vhost_driver_register(path, 0) != 0) {
+	if (rte_vhost_driver_register(dev_dirname, RTE_VHOST_USER_VIRTIO_TRANSPORT) != 0) {
 		SPDK_ERRLOG("Could not register controller %s with vhost library\n", name);
 		SPDK_ERRLOG("Check if domain socket %s already exists\n", path);
 		rc = -EIO;
 		goto out;
 	}
-	if (rte_vhost_driver_set_features(path, backend->virtio_features) ||
-	    rte_vhost_driver_disable_features(path, backend->disabled_features)) {
+	if (rte_vhost_driver_set_features(dev_dirname, backend->virtio_features) ||
+	    rte_vhost_driver_disable_features(dev_dirname, backend->disabled_features)) {
 		SPDK_ERRLOG("Couldn't set vhost features for controller %s\n", name);
 
-		rte_vhost_driver_unregister(path);
+		rte_vhost_driver_unregister(dev_dirname);
 		rc = -EIO;
 		goto out;
 	}
 
-	if (rte_vhost_driver_callback_register(path, &g_spdk_vhost_ops) != 0) {
-		rte_vhost_driver_unregister(path);
+	if (rte_vhost_driver_callback_register(dev_dirname, &g_spdk_vhost_ops) != 0) {
+		rte_vhost_driver_unregister(dev_dirname);
 		SPDK_ERRLOG("Couldn't register callbacks for controller %s\n", name);
 		rc = -EIO;
 		goto out;
@@ -732,16 +747,16 @@ spdk_vhost_dev_register(struct spdk_vhost_dev *vdev, const char *name, const cha
 	 * callbacks are also protected by the global SPDK vhost mutex, so we're
 	 * safe with not initializing the vdev just yet.
 	 */
-	if (spdk_call_unaffinitized(_start_rte_driver, path) == NULL) {
+	if (spdk_call_unaffinitized(_start_rte_driver, dev_dirname) == NULL) {
 		SPDK_ERRLOG("Failed to start vhost driver for controller %s (%d): %s\n",
 			    name, errno, spdk_strerror(errno));
-		rte_vhost_driver_unregister(path);
+		rte_vhost_driver_unregister(dev_dirname);
 		rc = -EIO;
 		goto out;
 	}
 
 	vdev->name = strdup(name);
-	vdev->path = strdup(path);
+	vdev->path = strdup(dev_dirname);
 	vdev->id = ctrlr_num++;
 	vdev->vid = -1;
 	vdev->lcore = -1;
@@ -1185,19 +1200,20 @@ spdk_vhost_set_socket_path(const char *basename)
 	int ret;
 
 	if (basename && strlen(basename) > 0) {
-		ret = snprintf(dev_dirname, sizeof(dev_dirname) - 2, "%s", basename);
+		ret = snprintf(dev_dirname, sizeof(dev_dirname) - 1, "%s", basename);
 		if (ret <= 0) {
 			return -EINVAL;
 		}
-		if ((size_t)ret >= sizeof(dev_dirname) - 2) {
+		if ((size_t)ret >= sizeof(dev_dirname) - 1) {
 			SPDK_ERRLOG("Char dev dir path length %d is too long\n", ret);
 			return -EINVAL;
 		}
 
-		if (dev_dirname[ret - 1] != '/') {
-			dev_dirname[ret] = '/';
-			dev_dirname[ret + 1]  = '\0';
-		}
+		//if (dev_dirname[ret - 1] != '/') {
+		//	dev_dirname[ret] = '/';
+		//	dev_dirname[ret + 1]  = '\0';
+		//}
+		dev_dirname[ret] = '\0';
 	}
 
 	return 0;
@@ -1243,8 +1259,9 @@ new_connection(int vid)
 		pthread_mutex_unlock(&g_spdk_vhost_mutex);
 		return -1;
 	}
-
-	vdev = spdk_vhost_dev_find(ifname);
+	//debugging
+	printf("new_connection: calling spdk_vhost_dev_find with ifname=%s\n", ifname);
+	vdev = spdk_vhost_dev_find_by_path(ifname);
 	if (vdev == NULL) {
 		SPDK_ERRLOG("Couldn't find device with vid %d to create connection for.\n", vid);
 		pthread_mutex_unlock(&g_spdk_vhost_mutex);

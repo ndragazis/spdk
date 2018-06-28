@@ -99,12 +99,12 @@ get_blk_size(int fd)
 static void
 free_mem_region(struct virtio_net *dev)
 {
-	uint32_t i;
-	struct rte_vhost_mem_region *reg;
+	//uint32_t i;
+	//struct rte_vhost_mem_region *reg;
 
 	if (!dev || !dev->mem)
 		return;
-
+/*
 	for (i = 0; i < dev->mem->nregions; i++) {
 		reg = &dev->mem->regions[i];
 		if (reg->host_user_addr) {
@@ -112,6 +112,8 @@ free_mem_region(struct virtio_net *dev)
 			close(reg->fd);
 		}
 	}
+*/
+	dev->trans_ops->unmap_mem_regions(dev);
 }
 
 void
@@ -153,10 +155,10 @@ vhost_user_set_owner(void)
 static int
 vhost_user_reset_owner(struct virtio_net *dev)
 {
-	if (dev->flags & VIRTIO_DEV_RUNNING) {
-		dev->flags &= ~VIRTIO_DEV_RUNNING;
-		dev->notify_ops->destroy_device(dev->vid);
-	}
+	// if (dev->flags & VIRTIO_DEV_RUNNING) {
+	// 	dev->flags &= ~VIRTIO_DEV_RUNNING;
+	// 	dev->notify_ops->destroy_device(dev->vid);
+	// }
 
 	cleanup_device(dev, 0);
 	reset_device(dev);
@@ -169,6 +171,10 @@ vhost_user_reset_owner(struct virtio_net *dev)
 static uint64_t
 vhost_user_get_features(struct virtio_net *dev)
 {
+	if(dev->features & (1ULL << VHOST_USER_F_PROTOCOL_FEATURES))
+		printf("VHOST_USER_GET_FEATURES: VHOST_USER_F_PROTOCOL_FEATURES is negotiated\n");
+	else
+		printf("VHOST_USER_GET_FEATURES: VHOST_USER_F_PROTOCOL_FEATURES is not negotiated\n");
 	return dev->features;
 }
 
@@ -192,8 +198,8 @@ vhost_user_set_features(struct virtio_net *dev, uint64_t features)
 		if (dev->notify_ops->features_changed) {
 			dev->notify_ops->features_changed(dev->vid, features);
 		} else {
-			dev->flags &= ~VIRTIO_DEV_RUNNING;
-			dev->notify_ops->destroy_device(dev->vid);
+			// dev->flags &= ~VIRTIO_DEV_RUNNING;
+			// dev->notify_ops->destroy_device(dev->vid);
 		}
 	}
 
@@ -451,10 +457,10 @@ vhost_user_set_vring_base(struct virtio_net *dev,
 			  VhostUserMsg *msg)
 {
 	/* Remove from the data plane. */
-	if (dev->flags & VIRTIO_DEV_RUNNING) {
-		dev->flags &= ~VIRTIO_DEV_RUNNING;
-		dev->notify_ops->destroy_device(dev->vid);
-	}
+	// if (dev->flags & VIRTIO_DEV_RUNNING) {
+	// 	dev->flags &= ~VIRTIO_DEV_RUNNING;
+	// 	dev->notify_ops->destroy_device(dev->vid);
+	// }
 
 	dev->virtqueue[msg->payload.state.index]->last_used_idx  = msg->payload.state.num;
 	dev->virtqueue[msg->payload.state.index]->last_avail_idx = msg->payload.state.num;
@@ -490,7 +496,7 @@ add_one_guest_page(struct virtio_net *dev, uint64_t guest_phys_addr,
 	page->size = size;
 }
 
-static void
+void
 add_guest_pages(struct virtio_net *dev, struct rte_vhost_mem_region *reg,
 		uint64_t page_size)
 {
@@ -547,10 +553,48 @@ dump_guest_pages(struct virtio_net *dev)
 #define dump_guest_pages(dev)
 #endif
 
+static bool
+vhost_memory_changed(struct VhostUserMemory *new,
+		     struct rte_vhost_memory *old)
+{
+	uint32_t i;
+
+	if (new->nregions != old->nregions)
+		return true;
+
+	for (i = 0; i < new->nregions; ++i) {
+		VhostUserMemoryRegion *new_r = &new->regions[i];
+		struct rte_vhost_mem_region *old_r = &old->regions[i];
+
+		if (new_r->guest_phys_addr != old_r->guest_phys_addr)
+			return true;
+		if (new_r->memory_size != old_r->size)
+			return true;
+		if (new_r->userspace_addr != old_r->guest_user_addr)
+			return true;
+	}
+
+	return false;
+}
+
 static int
 vhost_user_set_mem_table(struct virtio_net *dev, struct VhostUserMsg *pmsg)
 {
+	struct VhostUserMemory memory = pmsg->payload.memory;
 	uint32_t i;
+
+	if (dev->mem && !vhost_memory_changed(&memory, dev->mem)) {
+		RTE_LOG(INFO, VHOST_CONFIG,
+			"(%d) memory regions not changed\n", dev->vid);
+
+		for (i = 0; i < memory.nregions; i++) {
+			if (pmsg->fds[i] >= 0) {
+				close(pmsg->fds[i]);
+			}
+		}
+
+		return 0;
+	}
 
 	if (dev->has_new_mem_table) {
 		/*
@@ -563,6 +607,11 @@ vhost_user_set_mem_table(struct virtio_net *dev, struct VhostUserMsg *pmsg)
 		}
 	}
 
+	/*
+	* just make copies of memory regions and fds from the VhostUserMsg
+	* payload so they can be used later for the setup by 
+	* vhost_setup_mem_table() function
+	*/
 	memcpy(&dev->mem_table, &pmsg->payload.memory, sizeof(dev->mem_table));
 	memcpy(dev->mem_table_fds, pmsg->fds, sizeof(dev->mem_table_fds));
 	dev->has_new_mem_table = 1;
@@ -584,10 +633,10 @@ vhost_setup_mem_table(struct virtio_net *dev)
 	struct VhostUserMemory memory = dev->mem_table;
 	struct rte_vhost_mem_region *reg;
 	struct vhost_virtqueue *vq;
-	void *mmap_addr;
-	uint64_t mmap_size;
-	uint64_t mmap_offset;
-	uint64_t alignment;
+	//void *mmap_addr;
+	//uint64_t mmap_size;
+	//uint64_t mmap_offset;
+	//uint64_t alignment;
 	uint32_t i;
 	int fd;
 
@@ -632,48 +681,58 @@ vhost_setup_mem_table(struct virtio_net *dev)
 		reg->guest_phys_addr = memory.regions[i].guest_phys_addr;
 		reg->guest_user_addr = memory.regions[i].userspace_addr;
 		reg->size            = memory.regions[i].memory_size;
+		reg->mmap_size       = reg->size + memory.regions[i].mmap_offset;
+		reg->mmap_addr       = NULL;
+		reg->host_user_addr  = 0;		
 		reg->fd              = fd;
 
-		mmap_offset = memory.regions[i].mmap_offset;
-		mmap_size   = reg->size + mmap_offset;
+		// mmap_offset = memory.regions[i].mmap_offset;
+		// mmap_size   = reg->size + mmap_offset;
 
-		/* mmap() without flag of MAP_ANONYMOUS, should be called
-		 * with length argument aligned with hugepagesz at older
-		 * longterm version Linux, like 2.6.32 and 3.2.72, or
-		 * mmap() will fail with EINVAL.
-		 *
-		 * to avoid failure, make sure in caller to keep length
-		 * aligned.
-		 */
-		alignment = get_blk_size(fd);
-		if (alignment == (uint64_t)-1) {
-			RTE_LOG(ERR, VHOST_CONFIG,
-				"couldn't get hugepage size through fstat\n");
-			goto err_mmap;
-		}
-		mmap_size = RTE_ALIGN_CEIL(mmap_size, alignment);
+		// /* mmap() without flag of MAP_ANONYMOUS, should be called
+		//  * with length argument aligned with hugepagesz at older
+		//  * longterm version Linux, like 2.6.32 and 3.2.72, or
+		//  * mmap() will fail with EINVAL.
+		//  *
+		//  * to avoid failure, make sure in caller to keep length
+		//  * aligned.
+		//  */
+		// alignment = get_blk_size(fd);
+		// if (alignment == (uint64_t)-1) {
+		// 	RTE_LOG(ERR, VHOST_CONFIG,
+		// 		"couldn't get hugepage size through fstat\n");
+		// 	goto err_mmap;
+		// }
+		// mmap_size = RTE_ALIGN_CEIL(mmap_size, alignment);
 
-		mmap_addr = mmap(NULL, mmap_size, PROT_READ | PROT_WRITE,
-				 MAP_SHARED | MAP_POPULATE, fd, 0);
+		// mmap_addr = mmap(NULL, mmap_size, PROT_READ | PROT_WRITE,
+		// 		 MAP_SHARED | MAP_POPULATE, fd, 0);
 
-		if (mmap_addr == MAP_FAILED) {
-			RTE_LOG(ERR, VHOST_CONFIG,
-				"mmap region %u failed.\n", i);
-			goto err_mmap;
-		}
+		// if (mmap_addr == MAP_FAILED) {
+		// 	RTE_LOG(ERR, VHOST_CONFIG,
+		// 		"mmap region %u failed.\n", i);
+		// 	goto err_mmap;
+		// }
 
-		if (madvise(mmap_addr, mmap_size, MADV_DONTDUMP) != 0) {
-			RTE_LOG(INFO, VHOST_CONFIG,
-				"MADV_DONTDUMP advice setting failed.\n");
-		}
+		// if (madvise(mmap_addr, mmap_size, MADV_DONTDUMP) != 0) {
+		// 	RTE_LOG(INFO, VHOST_CONFIG,
+		// 		"MADV_DONTDUMP advice setting failed.\n");
+		// }
 
-		reg->mmap_addr = mmap_addr;
-		reg->mmap_size = mmap_size;
-		reg->host_user_addr = (uint64_t)(uintptr_t)mmap_addr +
-				      mmap_offset;
+		// reg->mmap_addr = mmap_addr;
+		// reg->mmap_size = mmap_size;
+		// reg->host_user_addr = (uint64_t)(uintptr_t)mmap_addr +
+		// 		      mmap_offset;
 
-		if (dev->dequeue_zero_copy)
-			add_guest_pages(dev, reg, alignment);
+		// if (dev->dequeue_zero_copy)
+		// 	add_guest_pages(dev, reg, alignment);
+	}
+
+	if (dev->trans_ops->map_mem_regions(dev) < 0)
+		goto err_mmap;
+
+	for (i = 0; i < memory.nregions; i++) {
+		reg = &dev->mem->regions[i];
 
 		RTE_LOG(INFO, VHOST_CONFIG,
 			"guest memory region %u, size: 0x%" PRIx64 "\n"
@@ -682,16 +741,16 @@ vhost_setup_mem_table(struct virtio_net *dev)
 			"\t host  virtual  addr: 0x%" PRIx64 "\n"
 			"\t mmap addr : 0x%" PRIx64 "\n"
 			"\t mmap size : 0x%" PRIx64 "\n"
-			"\t mmap align: 0x%" PRIx64 "\n"
+			//"\t mmap align: 0x%" PRIx64 "\n"
 			"\t mmap off  : 0x%" PRIx64 "\n",
 			i, reg->size,
 			reg->guest_phys_addr,
 			reg->guest_user_addr,
 			reg->host_user_addr,
-			(uint64_t)(uintptr_t)mmap_addr,
-			mmap_size,
-			alignment,
-			mmap_offset);
+			(uint64_t)(uintptr_t)reg->mmap_addr,
+			reg->mmap_size,
+			//alignment,
+			memory.regions[i].mmap_offset);
 	}
 
 	dump_guest_pages(dev);
@@ -708,11 +767,12 @@ err_mmap:
 static int
 vq_is_ready(struct vhost_virtqueue *vq)
 {
-	return vq && vq->desc   &&
+	return vq && vq->desc && vq->avail && vq->used &&
 	       vq->kickfd != VIRTIO_UNINITIALIZED_EVENTFD &&
-	       vq->callfd != VIRTIO_UNINITIALIZED_EVENTFD &&
-	       vq->kickfd != VIRTIO_INVALID_EVENTFD &&
-	       vq->callfd != VIRTIO_INVALID_EVENTFD;
+	       vq->callfd != VIRTIO_UNINITIALIZED_EVENTFD; 
+		   //&&
+	       //vq->kickfd != VIRTIO_INVALID_EVENTFD &&
+	       //vq->callfd != VIRTIO_INVALID_EVENTFD;
 }
 
 static int
@@ -744,10 +804,10 @@ vhost_user_set_vring_call(struct virtio_net *dev, struct VhostUserMsg *pmsg)
 	struct vhost_virtqueue *vq;
 
 	/* Remove from the data plane. */
-	if (dev->flags & VIRTIO_DEV_RUNNING) {
-		dev->flags &= ~VIRTIO_DEV_RUNNING;
-		dev->notify_ops->destroy_device(dev->vid);
-	}
+	// if (dev->flags & VIRTIO_DEV_RUNNING) {
+	// 	dev->flags &= ~VIRTIO_DEV_RUNNING;
+	// 	dev->notify_ops->destroy_device(dev->vid);
+	// }
 
 	file.index = pmsg->payload.u64 & VHOST_USER_VRING_IDX_MASK;
 	if (pmsg->payload.u64 & VHOST_USER_VRING_NOFD_MASK)
@@ -771,10 +831,10 @@ vhost_user_set_vring_kick(struct virtio_net *dev, struct VhostUserMsg *pmsg)
 	struct vhost_virtqueue *vq;
 
 	/* Remove from the data plane. */
-	if (dev->flags & VIRTIO_DEV_RUNNING) {
-		dev->flags &= ~VIRTIO_DEV_RUNNING;
-		dev->notify_ops->destroy_device(dev->vid);
-	}
+	// if (dev->flags & VIRTIO_DEV_RUNNING) {
+	// 	dev->flags &= ~VIRTIO_DEV_RUNNING;
+	// 	dev->notify_ops->destroy_device(dev->vid);
+	// }
 
 	file.index = pmsg->payload.u64 & VHOST_USER_VRING_IDX_MASK;
 	if (pmsg->payload.u64 & VHOST_USER_VRING_NOFD_MASK)
@@ -816,10 +876,10 @@ vhost_user_get_vring_base(struct virtio_net *dev,
 	struct vhost_virtqueue *vq = dev->virtqueue[msg->payload.state.index];
 
 	/* We have to stop the queue (virtio) if it is running. */
-	if (dev->flags & VIRTIO_DEV_RUNNING) {
-		dev->flags &= ~VIRTIO_DEV_RUNNING;
-		dev->notify_ops->destroy_device(dev->vid);
-	}
+	// if (dev->flags & VIRTIO_DEV_RUNNING) {
+	// 	dev->flags &= ~VIRTIO_DEV_RUNNING;
+	// 	dev->notify_ops->destroy_device(dev->vid);
+	// }
 
 	dev->flags &= ~VIRTIO_DEV_READY;
 
@@ -881,10 +941,10 @@ vhost_user_set_protocol_features(struct virtio_net *dev,
 		return;
 
 	/* Remove from the data plane. */
-	if (dev->flags & VIRTIO_DEV_RUNNING) {
-		dev->flags &= ~VIRTIO_DEV_RUNNING;
-		dev->notify_ops->destroy_device(dev->vid);
-	}
+	// if (dev->flags & VIRTIO_DEV_RUNNING) {
+	// 	dev->flags &= ~VIRTIO_DEV_RUNNING;
+	// 	dev->notify_ops->destroy_device(dev->vid);
+	// }
 
 	dev->protocol_features = protocol_features;
 }
@@ -909,10 +969,10 @@ vhost_user_set_log_base(struct virtio_net *dev, struct VhostUserMsg *msg)
 	}
 
 	/* Remove from the data plane. */
-	if (dev->flags & VIRTIO_DEV_RUNNING) {
-		dev->flags &= ~VIRTIO_DEV_RUNNING;
-		dev->notify_ops->destroy_device(dev->vid);
-	}
+	// if (dev->flags & VIRTIO_DEV_RUNNING) {
+	// 	dev->flags &= ~VIRTIO_DEV_RUNNING;
+	// 	dev->notify_ops->destroy_device(dev->vid);
+	// }
 
 	size = msg->payload.log.mmap_size;
 	off  = msg->payload.log.mmap_offset;
@@ -993,6 +1053,7 @@ vhost_user_net_set_mtu(struct virtio_net *dev, struct VhostUserMsg *msg)
 }
 
 /* return bytes# of read on success or negative val on failure. */
+/*
 static int
 read_vhost_message(int sockfd, struct VhostUserMsg *msg)
 {
@@ -1021,11 +1082,11 @@ read_vhost_message(int sockfd, struct VhostUserMsg *msg)
 
 	return ret;
 }
-
+*/
 static int
-send_vhost_message(int sockfd, struct VhostUserMsg *msg)
+send_vhost_reply(struct virtio_net *dev, struct VhostUserMsg *msg)
 {
-	int ret;
+//	int ret;
 
 	if (!msg)
 		return 0;
@@ -1034,11 +1095,13 @@ send_vhost_message(int sockfd, struct VhostUserMsg *msg)
 	msg->flags &= ~VHOST_USER_NEED_REPLY;
 	msg->flags |= VHOST_USER_VERSION;
 	msg->flags |= VHOST_USER_REPLY_MASK;
-
+/*
 	ret = send_fd_message(sockfd, (char *)msg,
 		VHOST_USER_HDR_SIZE + msg->size, NULL, 0);
 
 	return ret;
+*/
+	return dev->trans_ops->send_reply(dev, msg);
 }
 
 /*
@@ -1119,10 +1182,10 @@ vhost_user_nvme_get_cap(struct virtio_net *dev, uint64_t *cap)
 }
 
 int
-vhost_user_msg_handler(int vid, int fd)
+vhost_user_msg_handler(int vid, struct VhostUserMsg *msg_)
 {
 	struct virtio_net *dev;
-	struct VhostUserMsg msg;
+	struct VhostUserMsg msg = *msg_; /*copy so we can build the reply*/
 	struct vhost_vring_file file;
 	int ret;
 	uint64_t cap;
@@ -1146,7 +1209,7 @@ vhost_user_msg_handler(int vid, int fd)
 			return -1;
 		}
 	}
-
+/*
 	ret = read_vhost_message(fd, &msg);
 	if (ret <= 0 || msg.request >= VHOST_USER_MAX) {
 		if (ret < 0)
@@ -1161,7 +1224,7 @@ vhost_user_msg_handler(int vid, int fd)
 
 		return -1;
 	}
-
+*/
 	RTE_LOG(INFO, VHOST_CONFIG, "%s: read message %s\n",
 		dev->ifname, vhost_message_str[msg.request]);
 
@@ -1179,7 +1242,7 @@ vhost_user_msg_handler(int vid, int fd)
 						msg.payload.config.size) != 0) {
 			msg.size = sizeof(uint64_t);
 		}
-		send_vhost_message(fd, &msg);
+		send_vhost_reply(dev, &msg);
 		break;
 	case VHOST_USER_SET_CONFIG:
 		if ((dev->notify_ops->set_config(dev->vid,
@@ -1205,7 +1268,7 @@ vhost_user_msg_handler(int vid, int fd)
 			memcpy(msg.payload.nvme.buf, &buf, 4096);
 			msg.size += 4096;
 		}
-		send_vhost_message(fd, &msg);
+		send_vhost_reply(dev, &msg);
 		break;
 	case VHOST_USER_NVME_SET_CQ_CALL:
 		file.index = msg.payload.u64 & VHOST_USER_VRING_IDX_MASK;
@@ -1219,7 +1282,7 @@ vhost_user_msg_handler(int vid, int fd)
 		else
 			msg.payload.u64 = 0;
 		msg.size = sizeof(msg.payload.u64);
-		send_vhost_message(fd, &msg);
+		send_vhost_reply(dev, &msg);
 		break;
 	case VHOST_USER_NVME_START_STOP:
 		enable = msg.payload.u64;
@@ -1245,7 +1308,7 @@ vhost_user_msg_handler(int vid, int fd)
 	case VHOST_USER_GET_FEATURES:
 		msg.payload.u64 = vhost_user_get_features(dev);
 		msg.size = sizeof(msg.payload.u64);
-		send_vhost_message(fd, &msg);
+		send_vhost_reply(dev, &msg);
 		break;
 	case VHOST_USER_SET_FEATURES:
 		vhost_user_set_features(dev, msg.payload.u64);
@@ -1254,7 +1317,7 @@ vhost_user_msg_handler(int vid, int fd)
 	case VHOST_USER_GET_PROTOCOL_FEATURES:
 		msg.payload.u64 = VHOST_USER_PROTOCOL_FEATURES;
 		msg.size = sizeof(msg.payload.u64);
-		send_vhost_message(fd, &msg);
+		send_vhost_reply(dev, &msg);
 		break;
 	case VHOST_USER_SET_PROTOCOL_FEATURES:
 		vhost_user_set_protocol_features(dev, msg.payload.u64);
@@ -1276,7 +1339,7 @@ vhost_user_msg_handler(int vid, int fd)
 
 		/* it needs a reply */
 		msg.size = sizeof(msg.payload.u64);
-		send_vhost_message(fd, &msg);
+		send_vhost_reply(dev, &msg);
 		break;
 	case VHOST_USER_SET_LOG_FD:
 		close(msg.fds[0]);
@@ -1296,7 +1359,7 @@ vhost_user_msg_handler(int vid, int fd)
 	case VHOST_USER_GET_VRING_BASE:
 		vhost_user_get_vring_base(dev, &msg);
 		msg.size = sizeof(msg.payload.state);
-		send_vhost_message(fd, &msg);
+		send_vhost_reply(dev, &msg);
 		break;
 
 	case VHOST_USER_SET_VRING_KICK:
@@ -1315,7 +1378,7 @@ vhost_user_msg_handler(int vid, int fd)
 	case VHOST_USER_GET_QUEUE_NUM:
 		msg.payload.u64 = VHOST_MAX_QUEUE_PAIRS;
 		msg.size = sizeof(msg.payload.u64);
-		send_vhost_message(fd, &msg);
+		send_vhost_reply(dev, &msg);
 		break;
 
 	case VHOST_USER_SET_VRING_ENABLE:
@@ -1338,7 +1401,7 @@ vhost_user_msg_handler(int vid, int fd)
 	if (msg.flags & VHOST_USER_NEED_REPLY) {
 		msg.payload.u64 = !!ret;
 		msg.size = sizeof(msg.payload.u64);
-		send_vhost_message(fd, &msg);
+		send_vhost_reply(dev, &msg);
 	}
 
 	if (!(dev->flags & VIRTIO_DEV_RUNNING) && virtio_is_ready(dev)) {
