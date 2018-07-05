@@ -41,7 +41,7 @@
 
 #include "spdk/vhost.h"
 #include "vhost_internal.h"
-#include "rte_vhost.h"
+#include "rte_vhost/rte_vhost.h"
 
 static uint32_t *g_num_ctrlrs;
 
@@ -256,9 +256,19 @@ spdk_vhost_vq_used_signal(struct spdk_vhost_dev *vdev, struct spdk_vhost_virtque
 	SPDK_DEBUGLOG(SPDK_LOG_VHOST_RING,
 		      "Queue %td - USED RING: sending IRQ: last used %"PRIu16"\n",
 		      virtqueue - vdev->virtqueue, virtqueue->vring.last_used_idx);
-
+/*	
+	if(virtqueue->vring.callfd > 0){
 	eventfd_write(virtqueue->vring.callfd, (eventfd_t)1);
-	return 1;
+		fprintf(stderr, "vhost.c: spdk_vhost_vq_used_signal: eventfd_write invoked for callfd: %d\n", virtqueue->vring.callfd);
+	}else{
+		fprintf(stderr, "vhost.c: spdk_vhost_vq_used_signal: eventfd_write not invoked for callfd: %d\n", virtqueue->vring.callfd);
+	}
+*/
+	int ret = rte_vhost_vring_call(vdev->vid, virtqueue->vring_idx);
+	if(ret == 0)
+		return 1; //signal sent
+	else
+		return 0; //signal not sent
 }
 
 
@@ -1092,9 +1102,11 @@ start_device(int vid)
 	vdev->max_queues = 0;
 	memset(vdev->virtqueue, 0, sizeof(vdev->virtqueue));
 	for (i = 0; i < SPDK_VHOST_MAX_VQUEUES; i++) {
+		vdev->virtqueue[i].vring_idx = -1;
 		if (rte_vhost_get_vhost_vring(vid, i, &vdev->virtqueue[i].vring)) {
 			continue;
 		}
+		vdev->virtqueue[i].vring_idx = i; //index of the corresponding vhost_virtqueue
 
 		if (vdev->virtqueue[i].vring.desc == NULL ||
 		    vdev->virtqueue[i].vring.size == 0) {
@@ -1109,6 +1121,10 @@ start_device(int vid)
 
 		vdev->max_queues = i + 1;
 	}
+	//for debug purposes
+	//for (i = 0; i < SPDK_VHOST_MAX_VQUEUES; i++) {
+	//	fprintf(stderr, "vhost.c:start_device:1091: vdev virtqueue %d has vring_idx %d\n", i, vdev->virtqueue[i].vring_idx);
+	//}
 
 	if (rte_vhost_get_negotiated_features(vid, &vdev->negotiated_features) != 0) {
 		SPDK_ERRLOG("vhost device %d: Failed to get negotiated driver features\n", vid);
@@ -1129,11 +1145,13 @@ start_device(int vid)
 	 *
 	 * Tested on QEMU 2.10.91 and 2.11.50.
 	 */
+	/*
 	for (i = 0; i < vdev->max_queues; i++) {
 		if (vdev->virtqueue[i].vring.callfd != -1) {
 			eventfd_write(vdev->virtqueue[i].vring.callfd, (eventfd_t)1);
 		}
 	}
+	*/
 
 	vdev->lcore = spdk_vhost_allocate_reactor(vdev->cpumask);
 	spdk_vhost_dev_mem_register(vdev);

@@ -155,10 +155,10 @@ vhost_user_set_owner(void)
 static int
 vhost_user_reset_owner(struct virtio_net *dev)
 {
-	// if (dev->flags & VIRTIO_DEV_RUNNING) {
-	// 	dev->flags &= ~VIRTIO_DEV_RUNNING;
-	// 	dev->notify_ops->destroy_device(dev->vid);
-	// }
+	if (dev->flags & VIRTIO_DEV_RUNNING) {
+	 	dev->flags &= ~VIRTIO_DEV_RUNNING;
+	 	dev->notify_ops->destroy_device(dev->vid);
+	}
 
 	cleanup_device(dev, 0);
 	reset_device(dev);
@@ -198,8 +198,8 @@ vhost_user_set_features(struct virtio_net *dev, uint64_t features)
 		if (dev->notify_ops->features_changed) {
 			dev->notify_ops->features_changed(dev->vid, features);
 		} else {
-			// dev->flags &= ~VIRTIO_DEV_RUNNING;
-			// dev->notify_ops->destroy_device(dev->vid);
+			dev->flags &= ~VIRTIO_DEV_RUNNING;
+		    dev->notify_ops->destroy_device(dev->vid);
 		}
 	}
 
@@ -457,10 +457,10 @@ vhost_user_set_vring_base(struct virtio_net *dev,
 			  VhostUserMsg *msg)
 {
 	/* Remove from the data plane. */
-	// if (dev->flags & VIRTIO_DEV_RUNNING) {
-	// 	dev->flags &= ~VIRTIO_DEV_RUNNING;
-	// 	dev->notify_ops->destroy_device(dev->vid);
-	// }
+	if (dev->flags & VIRTIO_DEV_RUNNING) {
+	 	dev->flags &= ~VIRTIO_DEV_RUNNING;
+	 	dev->notify_ops->destroy_device(dev->vid);
+	}
 
 	dev->virtqueue[msg->payload.state.index]->last_used_idx  = msg->payload.state.num;
 	dev->virtqueue[msg->payload.state.index]->last_avail_idx = msg->payload.state.num;
@@ -804,10 +804,10 @@ vhost_user_set_vring_call(struct virtio_net *dev, struct VhostUserMsg *pmsg)
 	struct vhost_virtqueue *vq;
 
 	/* Remove from the data plane. */
-	// if (dev->flags & VIRTIO_DEV_RUNNING) {
-	// 	dev->flags &= ~VIRTIO_DEV_RUNNING;
-	// 	dev->notify_ops->destroy_device(dev->vid);
-	// }
+	if (dev->flags & VIRTIO_DEV_RUNNING) {
+	 	dev->flags &= ~VIRTIO_DEV_RUNNING;
+	 	dev->notify_ops->destroy_device(dev->vid);
+	}
 
 	file.index = pmsg->payload.u64 & VHOST_USER_VRING_IDX_MASK;
 	if (pmsg->payload.u64 & VHOST_USER_VRING_NOFD_MASK)
@@ -831,10 +831,10 @@ vhost_user_set_vring_kick(struct virtio_net *dev, struct VhostUserMsg *pmsg)
 	struct vhost_virtqueue *vq;
 
 	/* Remove from the data plane. */
-	// if (dev->flags & VIRTIO_DEV_RUNNING) {
-	// 	dev->flags &= ~VIRTIO_DEV_RUNNING;
-	// 	dev->notify_ops->destroy_device(dev->vid);
-	// }
+	if (dev->flags & VIRTIO_DEV_RUNNING) {
+	 	dev->flags &= ~VIRTIO_DEV_RUNNING;
+	 	dev->notify_ops->destroy_device(dev->vid);
+	}
 
 	file.index = pmsg->payload.u64 & VHOST_USER_VRING_IDX_MASK;
 	if (pmsg->payload.u64 & VHOST_USER_VRING_NOFD_MASK)
@@ -876,10 +876,10 @@ vhost_user_get_vring_base(struct virtio_net *dev,
 	struct vhost_virtqueue *vq = dev->virtqueue[msg->payload.state.index];
 
 	/* We have to stop the queue (virtio) if it is running. */
-	// if (dev->flags & VIRTIO_DEV_RUNNING) {
-	// 	dev->flags &= ~VIRTIO_DEV_RUNNING;
-	// 	dev->notify_ops->destroy_device(dev->vid);
-	// }
+	if (dev->flags & VIRTIO_DEV_RUNNING) {
+	 	dev->flags &= ~VIRTIO_DEV_RUNNING;
+	 	dev->notify_ops->destroy_device(dev->vid);
+	}
 
 	dev->flags &= ~VIRTIO_DEV_READY;
 
@@ -941,10 +941,10 @@ vhost_user_set_protocol_features(struct virtio_net *dev,
 		return;
 
 	/* Remove from the data plane. */
-	// if (dev->flags & VIRTIO_DEV_RUNNING) {
-	// 	dev->flags &= ~VIRTIO_DEV_RUNNING;
-	// 	dev->notify_ops->destroy_device(dev->vid);
-	// }
+	if (dev->flags & VIRTIO_DEV_RUNNING) {
+	 	dev->flags &= ~VIRTIO_DEV_RUNNING;
+	 	dev->notify_ops->destroy_device(dev->vid);
+	}
 
 	dev->protocol_features = protocol_features;
 }
@@ -969,10 +969,10 @@ vhost_user_set_log_base(struct virtio_net *dev, struct VhostUserMsg *msg)
 	}
 
 	/* Remove from the data plane. */
-	// if (dev->flags & VIRTIO_DEV_RUNNING) {
-	// 	dev->flags &= ~VIRTIO_DEV_RUNNING;
-	// 	dev->notify_ops->destroy_device(dev->vid);
-	// }
+	if (dev->flags & VIRTIO_DEV_RUNNING) {
+	 	dev->flags &= ~VIRTIO_DEV_RUNNING;
+	 	dev->notify_ops->destroy_device(dev->vid);
+	}
 
 	size = msg->payload.log.mmap_size;
 	off  = msg->payload.log.mmap_offset;
