@@ -33,6 +33,12 @@
 #include "virtio_vhost_user.h"
 #include "vhost_user.h"
 
+/*From lib/env_dpdk/env_internal.h. 
+* TODO: add a header file instead
+*/
+void spdk_vtophys_pci_device_added(struct rte_pci_device *pci_device);
+void spdk_vtophys_pci_device_removed(struct rte_pci_device *pci_device);
+
 /*
  * Data structures:
  *
@@ -769,6 +775,9 @@ vvu_virtio_pci_init_bar(struct vvu_socket *s)
 	struct virtio_net *dev = NULL; /* just for sizeof() */
 
 	s->doorbells = pci_dev->mem_resource[2].addr;
+	//debugging
+	//fprintf(stderr, "vvu_virtio_pci_init_bar: mem_resource[2].addr=0x%04lx\n", 
+	//	pci_dev->mem_resource[2].addr);
 	if (!s->doorbells) {
 		RTE_LOG(ERR, VHOST_CONFIG, "BAR 2 not availabled\n");
 		return -1;
@@ -902,6 +911,8 @@ vvu_pci_probe(struct rte_pci_driver *pci_drv __rte_unused,
 		"Added virtio-vhost-user device at %s\n",
 		pci_dev->device.name);
 
+	spdk_vtophys_pci_device_added(pci_dev);
+
 	return 0;
 }
 
@@ -926,6 +937,9 @@ vvu_pci_remove(struct rte_pci_device *pci_dev)
 	TAILQ_REMOVE(&vvu_pci_device_list, pdev, next);
 	rte_free(pdev);
 	rte_pci_unmap_device(pci_dev);
+
+	spdk_vtophys_pci_device_removed(pci_dev);
+
 	return 0;
 }
 
