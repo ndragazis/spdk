@@ -814,6 +814,7 @@ spdk_vhost_scsi_dev_add_tgt(struct spdk_vhost_dev *vdev, unsigned scsi_tgt_num,
 	char target_name[SPDK_SCSI_DEV_MAX_NAME];
 	int lun_id_list[1];
 	const char *bdev_names_list[1];
+	int ret;
 
 	svdev = to_scsi_dev(vdev);
 	if (svdev == NULL) {
@@ -863,7 +864,8 @@ spdk_vhost_scsi_dev_add_tgt(struct spdk_vhost_dev *vdev, unsigned scsi_tgt_num,
 		return 0;
 	}
 
-	spdk_scsi_dev_allocate_io_channels(svdev->scsi_dev[scsi_tgt_num]);
+	ret = spdk_scsi_dev_allocate_io_channels(svdev->scsi_dev[scsi_tgt_num]);
+	assert(ret == 0);
 
 	if (spdk_vhost_dev_has_feature(vdev, VIRTIO_SCSI_F_HOTPLUG)) {
 		eventq_enqueue(svdev, scsi_tgt_num, VIRTIO_SCSI_T_TRANSPORT_RESET,
@@ -1101,7 +1103,11 @@ spdk_vhost_scsi_start(struct spdk_vhost_dev *vdev, void *event_ctx)
 		if (svdev->scsi_dev[i] == NULL) {
 			continue;
 		}
-		spdk_scsi_dev_allocate_io_channels(svdev->scsi_dev[i]);
+		int ret;
+		ret = spdk_scsi_dev_allocate_io_channels(svdev->scsi_dev[i]);
+		assert(ret == 0);
+                //if(ret != 0)
+                //        SPDK_ERRLOG("Could't allocate IO channels for SCSI target 'Target %d' in controller: %s\n", i, vdev->name);
 	}
 	SPDK_INFOLOG(SPDK_LOG_VHOST, "Started poller for vhost controller %s on lcore %d\n",
 		     vdev->name, vdev->lcore);
