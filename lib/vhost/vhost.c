@@ -48,6 +48,11 @@ static uint32_t *g_num_ctrlrs;
 /* Path to folder where character device will be created. Can be set by user. */
 static char dev_dirname[PATH_MAX] = "";
 
+static int dev_dirname_len;
+
+/* Chosen vhost-user transport. Default is unix transport. */
+static uint64_t transport;
+
 struct spdk_vhost_dev_event_ctx {
 	/** Pointer to the controller obtained before enqueuing the event */
 	struct spdk_vhost_dev *vdev;
@@ -706,47 +711,63 @@ spdk_vhost_dev_register(struct spdk_vhost_dev *vdev, const char *name, const cha
 		goto out;
 	}
 
-	if (snprintf(path, sizeof(path), "%s%s", dev_dirname, name) >= (int)sizeof(path)) {
-		SPDK_ERRLOG("Resulting socket path for controller %s is too long: %s%s\n", name, dev_dirname,
-			    name);
-		rc = -EINVAL;
-		goto out;
-	}
+	if(transport != RTE_VHOST_USER_VIRTIO_TRANSPORT){
 
-	/* Register vhost driver to handle vhost messages. */
-	if (stat(path, &file_stat) != -1) {
-		if (!S_ISSOCK(file_stat.st_mode)) {
-			SPDK_ERRLOG("Cannot create a domain socket at path \"%s\": "
-				    "The file already exists and is not a socket.\n",
-				    path);
-			rc = -EIO;
-			goto out;
-		} else if (unlink(path) != 0) {
-			SPDK_ERRLOG("Cannot create a domain socket at path \"%s\": "
-				    "The socket already exists and failed to unlink.\n",
-				    path);
-			rc = -EIO;
+		// insert a slash in the end of a non-empty dirname if not present already
+		if (dev_dirname_len > 0 && dev_dirname[dev_dirname_len - 1] != '/') {
+                	dev_dirname[dev_dirname_len] = '/';
+                        dev_dirname[dev_dirname_len + 1]  = '\0';
+                }
+
+		if (snprintf(path, sizeof(path), "%s%s", dev_dirname, name) >= (int)sizeof(path)) {
+			SPDK_ERRLOG("Resulting socket path for controller %s is too long: %s%s\n", name, dev_dirname,
+				    name);
+			rc = -EINVAL;
 			goto out;
 		}
+	
+		/* Register vhost driver to handle vhost messages. */
+		if (stat(path, &file_stat) != -1) {
+			if (!S_ISSOCK(file_stat.st_mode)) {
+				SPDK_ERRLOG("Cannot create a domain socket at path \"%s\": "
+					    "The file already exists and is not a socket.\n",
+					    path);
+				rc = -EIO;
+				goto out;
+			} else if (unlink(path) != 0) {
+				SPDK_ERRLOG("Cannot create a domain socket at path \"%s\": "
+					    "The socket already exists and failed to unlink.\n",
+					    path);
+				rc = -EIO;
+				goto out;
+			}
+		}
+	}else{
+		if (snprintf(path, sizeof(path), "%s", dev_dirname) >= 14) {
+                        SPDK_ERRLOG("PCI address for controller %s is too long: %s\n", name, dev_dirname);
+                        rc = -EINVAL;
+                        goto out;
+                }
 	}
 
-	if (rte_vhost_driver_register(dev_dirname, RTE_VHOST_USER_VIRTIO_TRANSPORT) != 0) {
+	if (rte_vhost_driver_register(path, transport) != 0) {
 		SPDK_ERRLOG("Could not register controller %s with vhost library\n", name);
-		SPDK_ERRLOG("Check if domain socket %s already exists\n", path);
+		if(transport != RTE_VHOST_USER_VIRTIO_TRANSPORT)
+			SPDK_ERRLOG("Check if domain socket %s already exists\n", path);
 		rc = -EIO;
 		goto out;
 	}
-	if (rte_vhost_driver_set_features(dev_dirname, backend->virtio_features) ||
-	    rte_vhost_driver_disable_features(dev_dirname, backend->disabled_features)) {
+	if (rte_vhost_driver_set_features(path, backend->virtio_features) ||
+	    rte_vhost_driver_disable_features(path, backend->disabled_features)) {
 		SPDK_ERRLOG("Couldn't set vhost features for controller %s\n", name);
 
-		rte_vhost_driver_unregister(dev_dirname);
+		rte_vhost_driver_unregister(path);
 		rc = -EIO;
 		goto out;
 	}
 
-	if (rte_vhost_driver_callback_register(dev_dirname, &g_spdk_vhost_ops) != 0) {
-		rte_vhost_driver_unregister(dev_dirname);
+	if (rte_vhost_driver_callback_register(path, &g_spdk_vhost_ops) != 0) {
+		rte_vhost_driver_unregister(path);
 		SPDK_ERRLOG("Couldn't register callbacks for controller %s\n", name);
 		rc = -EIO;
 		goto out;
@@ -757,16 +778,16 @@ spdk_vhost_dev_register(struct spdk_vhost_dev *vdev, const char *name, const cha
 	 * callbacks are also protected by the global SPDK vhost mutex, so we're
 	 * safe with not initializing the vdev just yet.
 	 */
-	if (spdk_call_unaffinitized(_start_rte_driver, dev_dirname) == NULL) {
+	if (spdk_call_unaffinitized(_start_rte_driver, path) == NULL) {
 		SPDK_ERRLOG("Failed to start vhost driver for controller %s (%d): %s\n",
 			    name, errno, spdk_strerror(errno));
-		rte_vhost_driver_unregister(dev_dirname);
+		rte_vhost_driver_unregister(path);
 		rc = -EIO;
 		goto out;
 	}
 
 	vdev->name = strdup(name);
-	vdev->path = strdup(dev_dirname);
+	vdev->path = strdup(path);
 	vdev->id = ctrlr_num++;
 	vdev->vid = -1;
 	vdev->lcore = -1;
@@ -1218,11 +1239,11 @@ spdk_vhost_set_socket_path(const char *basename)
 	int ret;
 
 	if (basename && strlen(basename) > 0) {
-		ret = snprintf(dev_dirname, sizeof(dev_dirname) - 1, "%s", basename);
+		ret = snprintf(dev_dirname, sizeof(dev_dirname) - 2, "%s", basename);
 		if (ret <= 0) {
 			return -EINVAL;
 		}
-		if ((size_t)ret >= sizeof(dev_dirname) - 1) {
+		if ((size_t)ret >= sizeof(dev_dirname) - 2) {
 			SPDK_ERRLOG("Char dev dir path length %d is too long\n", ret);
 			return -EINVAL;
 		}
@@ -1231,10 +1252,27 @@ spdk_vhost_set_socket_path(const char *basename)
 		//	dev_dirname[ret] = '/';
 		//	dev_dirname[ret + 1]  = '\0';
 		//}
-		dev_dirname[ret] = '\0';
+
+		dev_dirname_len = ret;
+		return 1;
 	}
 
 	return 0;
+}
+
+int
+spdk_vhost_set_transport(const char *trans)
+{
+
+	if (strcmp(trans, "vvu") == 0){
+                transport = RTE_VHOST_USER_VIRTIO_TRANSPORT;
+		return 1;
+	} else if (strcmp(trans, "unix") == 0){
+		return 0;
+	} else {
+		SPDK_ERRLOG("Invalid trasport %s\n", trans);
+                return -EINVAL;
+	}
 }
 
 static void *

@@ -41,7 +41,13 @@
 
 #define SPDK_VHOST_DEFAULT_MEM_SIZE 1024
 
+#define UNIX 0
+#define VVU 1
+
 static const char *g_pid_path = NULL;
+
+static int chosen_trans = UNIX;
+static int pci_addr = 0;
 
 static void
 vhost_app_opts_init(struct spdk_app_opts *opts)
@@ -55,7 +61,8 @@ static void
 vhost_usage(void)
 {
 	printf(" -f <path>                 save pid to file under given path\n");
-	printf(" -S <path>                 directory where to create vhost sockets (default: pwd)\n");
+	printf(" -S <path>                 directory where UNIX domain sockets will be created (default: pwd) or PCI address of VVU device\n");
+	printf(" -T <option>               choose vhost transport (\"unix\" or \"vvu\")\n");
 }
 
 static void
@@ -81,7 +88,10 @@ vhost_parse_arg(int ch, char *arg)
 		g_pid_path = arg;
 		break;
 	case 'S':
-		spdk_vhost_set_socket_path(arg);
+		pci_addr = spdk_vhost_set_socket_path(arg);
+		break;
+	case 'T':
+		chosen_trans = spdk_vhost_set_transport(arg);
 		break;
 	}
 }
@@ -99,10 +109,15 @@ main(int argc, char *argv[])
 
 	vhost_app_opts_init(&opts);
 
-	if ((rc = spdk_app_parse_args(argc, argv, &opts, "f:S:", NULL,
+	if ((rc = spdk_app_parse_args(argc, argv, &opts, "f:S:T:", NULL,
 				      vhost_parse_arg, vhost_usage)) !=
 	    SPDK_APP_PARSE_ARGS_SUCCESS) {
 		exit(rc);
+	}
+
+	if (chosen_trans == VVU && pci_addr != 1){
+		fprintf(stderr, "Couldn't create VVU transport without a PCI address for the VVU device.\n");
+                exit(EXIT_FAILURE);
 	}
 
 	if (g_pid_path) {

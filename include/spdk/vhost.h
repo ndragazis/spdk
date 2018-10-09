@@ -60,9 +60,20 @@ typedef void (*spdk_vhost_fini_cb)(void);
  *
  * \param basename Path to vhost socket directory
  *
- * \return 0 on success, negative errno on error.
+ * \return 1 for valid basename, 0 for empty basename, negative errno on error.
  */
 int spdk_vhost_set_socket_path(const char *basename);
+
+/**
+ * Set the vhost transport.
+ *
+ * This function must be called before spdk_vhost_init().
+ *
+ * \param trans Chosen transport
+ *
+ * \return 0 if chosen transport is UNIX, 1 if VVU, negative errno on error.
+ */
+int spdk_vhost_set_transport(const char *trans);
 
 /**
  * Init vhost environment.
