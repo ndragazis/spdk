@@ -48,6 +48,11 @@
 #include <rte_memory.h>
 #include <rte_mempool.h>
 
+/*Define struct spdk_pci_device*/
+#ifndef spdk_pci_device
+#define spdk_pci_device rte_pci_device
+#endif
+
 #define RTE_VHOST_USER_CLIENT		(1ULL << 0)
 #define RTE_VHOST_USER_NO_RECONNECT	(1ULL << 1)
 #define RTE_VHOST_USER_DEQUEUE_ZERO_COPY	(1ULL << 2)

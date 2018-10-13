@@ -66,6 +66,10 @@ extern "C" {
  */
 #define SPDK_MEMZONE_NO_IOVA_CONTIG 0x00100000 /**< no iova contiguity */
 
+#ifndef spdk_pci_device
+#define spdk_pci_device rte_pci_device
+#endif
+
 struct spdk_pci_device;
 
 /**
