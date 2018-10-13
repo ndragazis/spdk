@@ -33,11 +33,8 @@
 #include "virtio_vhost_user.h"
 #include "vhost_user.h"
 
-/*From lib/env_dpdk/env_internal.h. 
-* TODO: add a header file instead
-*/
-void spdk_vtophys_pci_device_added(struct rte_pci_device *pci_device);
-void spdk_vtophys_pci_device_removed(struct rte_pci_device *pci_device);
+/*Just for the definition of struct spdk_pci_device*/
+#include "rte_vhost.h"
 
 /*
  * Data structures:
@@ -866,9 +863,9 @@ err:
 	return -1;
 }
 
-static int
-vvu_pci_probe(struct rte_pci_driver *pci_drv __rte_unused,
-	      struct rte_pci_device *pci_dev)
+int
+vvu_pci_probe(void *probe_ctx __rte_unused,
+	      struct spdk_pci_device *pci_dev)
 {
 	struct vvu_pci_device *pdev;
 
@@ -911,8 +908,6 @@ vvu_pci_probe(struct rte_pci_driver *pci_drv __rte_unused,
 		"Added virtio-vhost-user device at %s\n",
 		pci_dev->device.name);
 
-	spdk_vtophys_pci_device_added(pci_dev);
-
 	return 0;
 }
 
@@ -938,40 +933,7 @@ vvu_pci_remove(struct rte_pci_device *pci_dev)
 	rte_free(pdev);
 	rte_pci_unmap_device(pci_dev);
 
-	spdk_vtophys_pci_device_removed(pci_dev);
-
 	return 0;
-}
-
-static const struct rte_pci_id pci_id_vvu_map[] = {
-	{ RTE_PCI_DEVICE(VIRTIO_PCI_VENDORID,
-			 VIRTIO_PCI_LEGACY_DEVICEID_VHOST_USER) },
-	{ RTE_PCI_DEVICE(VIRTIO_PCI_VENDORID,
-			 VIRTIO_PCI_MODERN_DEVICEID_VHOST_USER) },
-	{ .vendor_id = 0, /* sentinel */ },
-};
-
-static struct rte_pci_driver vvu_pci_driver = {
-	.driver = {
-		.name = "virtio_vhost_user",
-	},
-	.id_table = pci_id_vvu_map,
-	.drv_flags = 0,
-	.probe = vvu_pci_probe,
-	.remove = vvu_pci_remove,
-};
-
-RTE_INIT(vvu_pci_init);
-static void
-vvu_pci_init(void)
-{
-	if (rte_eal_iopl_init() != 0) {
-		RTE_LOG(ERR, VHOST_CONFIG,
-			"IOPL call failed - cannot use virtio-vhost-user\n");
-		return;
-	}
-
-	rte_pci_register(&vvu_pci_driver);
 }
 
 static int

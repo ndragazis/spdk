@@ -628,6 +628,16 @@ int spdk_pci_ioat_enumerate(spdk_pci_enum_cb enum_cb, void *enum_ctx);
 int spdk_pci_virtio_enumerate(spdk_pci_enum_cb enum_cb, void *enum_ctx);
 
 /**
+ * Enumerate virtio-vhost-user device.
+ *
+ * \param enum_cb Called when the enumerate operation completes.
+ * \param enum_ctx Argument passed to the callback function.
+ *
+ * \return 0 on success, -1 on failure.
+ */
+int spdk_pci_vvu_enumerate(spdk_pci_enum_cb enum_cb, void *enum_ctx);
+
+/**
  * Get a mapping of the virtual address to the BAR of the PCI device.
  *
  * \param dev PCI device.
@@ -822,6 +832,18 @@ int spdk_pci_ioat_device_attach(spdk_pci_enum_cb enum_cb, void *enum_ctx,
  */
 int spdk_pci_virtio_device_attach(spdk_pci_enum_cb enum_cb, void *enum_ctx,
 				  struct spdk_pci_addr *pci_address);
+
+/**
+ * Attach a virtio-vhost-user device.
+ *
+ * \param enum_cb Called when the attach operation completes.
+ * \param enum_ctx Argument passed to the callback function.
+ * \param pci_address PCI address of the virtio-vhost-user device.
+ *
+ * \return 0 on success, -1 on failure.
+ */
+int spdk_pci_vvu_device_attach(spdk_pci_enum_cb enum_cb, void *enum_ctx,
+			       struct spdk_pci_addr *pci_address);
 
 /**
  * Read PCI configuration space in any specified size.
