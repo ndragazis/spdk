@@ -486,4 +486,7 @@ int rte_vhost_set_vhost_vring_last_idx(int vid, uint16_t vring_idx,
  */
 int rte_vhost_vring_call(int vid, uint16_t vring_idx);
 
+struct spdk_pci_device;
+int vvu_pci_probe(void *probe_ctx, struct spdk_pci_device *pci_dev);
+
 #endif /* _RTE_VHOST_H_ */

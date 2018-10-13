@@ -743,11 +743,24 @@ spdk_vhost_dev_register(struct spdk_vhost_dev *vdev, const char *name, const cha
 			}
 		}
 	}else{
-		if (snprintf(path, sizeof(path), "%s", dev_dirname) >= 14) {
-                        SPDK_ERRLOG("PCI address for controller %s is too long: %s\n", name, dev_dirname);
+                struct spdk_pci_addr pci_addr;
+                if (spdk_pci_addr_parse(&pci_addr, dev_dirname) != 0) {
+                        SPDK_ERRLOG("Invalid PCI address '%s'\n", path);
                         rc = -EINVAL;
                         goto out;
                 }
+
+		if (snprintf(path, sizeof(path), "%s", dev_dirname) != dev_dirname_len) {
+                        SPDK_ERRLOG("Something went wrong while copying PCI address '%s' for controller %s.\n", dev_dirname, name);
+                        rc = -EINVAL;
+                        goto out;
+                }
+
+		rc = spdk_pci_vvu_device_attach(vvu_pci_probe, NULL, &pci_addr);
+		if(rc < 0) {
+			SPDK_ERRLOG("Couldn't attach vvu PCI device '%s'.\n", path);
+			goto out;
+		}
 	}
 
 	if (rte_vhost_driver_register(path, transport) != 0) {
