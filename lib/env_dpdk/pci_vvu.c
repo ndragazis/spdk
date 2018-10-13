@@ -43,7 +43,7 @@ static const struct rte_pci_id vvu_pci_driver_id[] = {
 
 static struct spdk_pci_enum_ctx g_vvu_pci_drv = {
 	.driver = {
-		.drv_flags	= 0
+		.drv_flags	= RTE_PCI_DRV_NEED_MAPPING
 #if RTE_VERSION >= RTE_VERSION_NUM(18, 8, 0, 0)
 		| RTE_PCI_DRV_WC_ACTIVATE
 #endif

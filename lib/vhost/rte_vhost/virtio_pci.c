@@ -348,11 +348,6 @@ virtio_read_caps(struct rte_pci_device *dev, struct virtio_hw *hw)
 	struct virtio_pci_cap cap;
 	int ret;
 
-	if (rte_pci_map_device(dev)) {
-		RTE_LOG(DEBUG, VIRTIO_PCI_CONFIG, "failed to map pci device!\n");
-		return -1;
-	}
-
 	ret = rte_pci_read_config(dev, &pos, 1, PCI_CAPABILITY_LIST);
 	if (ret < 0) {
 		RTE_LOG(DEBUG, VIRTIO_PCI_CONFIG, "failed to read pci capability list\n");
