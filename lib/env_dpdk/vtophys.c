@@ -76,6 +76,7 @@ struct spdk_vfio_dma_map {
 struct vfio_cfg {
 	int fd;
 	bool enabled;
+	bool noiommu_enabled;
 	unsigned device_ref;
 	TAILQ_HEAD(, spdk_vfio_dma_map) maps;
 	pthread_mutex_t mutex;
@@ -84,6 +85,7 @@ struct vfio_cfg {
 static struct vfio_cfg g_vfio = {
 	.fd = -1,
 	.enabled = false,
+	.noiommu_enabled = false,
 	.device_ref = 0,
 	.maps = TAILQ_HEAD_INITIALIZER(g_vfio.maps),
 	.mutex = PTHREAD_MUTEX_INITIALIZER
@@ -361,7 +363,7 @@ spdk_vtophys_notify(void *cb_ctx, struct spdk_mem_map *map,
 			if (paddr == SPDK_VTOPHYS_ERROR) {
 				/* This is not an address that DPDK is managing. */
 #if SPDK_VFIO_ENABLED
-				if (g_vfio.enabled) {
+				if (g_vfio.enabled && !g_vfio.noiommu_enabled) {
 					/* We'll use the virtual address as the iova. DPDK
 					 * currently uses physical addresses as the iovas (or counts
 					 * up from 0 if it can't get physical addresses), so
@@ -404,7 +406,7 @@ spdk_vtophys_notify(void *cb_ctx, struct spdk_mem_map *map,
 				 * This is not an address that DPDK is managing. If vfio is enabled,
 				 * we need to unmap the range from the IOMMU
 				 */
-				if (g_vfio.enabled) {
+				if (g_vfio.enabled && !g_vfio.noiommu_enabled) {
 					uint64_t buffer_len;
 					paddr = spdk_mem_map_translate(map, (uint64_t)vaddr, &buffer_len);
 					if (buffer_len != VALUE_2MB) {
@@ -443,6 +445,12 @@ spdk_vfio_enabled(void)
 #else
 	return pci_vfio_is_enabled();
 #endif
+}
+
+static bool
+spdk_vfio_noiommu_enabled(void)
+{
+	return rte_vfio_noiommu_is_enabled();
 }
 
 static void
@@ -488,6 +496,10 @@ spdk_vtophys_iommu_init(void)
 	}
 
 	g_vfio.enabled = true;
+
+        if(spdk_vfio_noiommu_enabled()) {
+                g_vfio.noiommu_enabled = true;
+        }
 
 	return;
 }
