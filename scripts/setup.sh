@@ -166,8 +166,12 @@ function get_virtio_names_from_bdf {
 function configure_linux_pci {
 	driver_name=vfio-pci
 	if [ -z "$(ls /sys/kernel/iommu_groups)" ]; then
-		# No IOMMU. Use uio.
-		driver_name=uio_pci_generic
+		# No IOMMU. If no-IOMMU mode vfio is not present, then use uio.
+		if ! [ -d /sys/module/vfio ] || 
+		   ! [ "$(cat /sys/module/vfio/parameters/enable_unsafe_noiommu_mode)" == "Y" ]
+		then
+			driver_name=uio_pci_generic
+		fi
 	fi
 
 	# NVMe
