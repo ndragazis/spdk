@@ -190,7 +190,7 @@ vhost_new_device(const struct vhost_transport_ops *trans_ops,
 	struct virtio_net *dev;
 	int i;
 
-	dev = rte_zmalloc(NULL, sizeof(struct virtio_net), 0);
+	dev = rte_zmalloc(NULL, trans_ops->device_size, 0);
 	if (dev == NULL) {
 		RTE_LOG(ERR, VHOST_CONFIG,
 			"Failed to allocate memory for new dev.\n");
