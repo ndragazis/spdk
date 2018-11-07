@@ -52,11 +52,11 @@ static struct spdk_pci_enum_ctx g_vvu_pci_drv = {
 #if RTE_VERSION >= RTE_VERSION_NUM(16, 11, 0, 0)
 		.probe		= spdk_pci_device_init,
 		.remove		= spdk_pci_device_fini,
-		.driver.name	= "spdk_virtio",
+		.driver.name	= "spdk_vvu",
 #else
 		.devinit	= spdk_pci_device_init,
 		.devuninit	= spdk_pci_device_fini,
-		.name		= "spdk_virtio",
+		.name		= "spdk_vvu",
 #endif
 	},
 
