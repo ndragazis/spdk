@@ -194,7 +194,8 @@ static bool g_bdev_virtio_finish = false;
 	(1ULL << VIRTIO_SCSI_F_INOUT		|	\
 	 1ULL << VIRTIO_SCSI_F_HOTPLUG		|	\
 	 1ULL << VIRTIO_RING_F_EVENT_IDX	|	\
-	 1ULL << VHOST_USER_F_PROTOCOL_FEATURES)
+	 1ULL << VHOST_USER_F_PROTOCOL_FEATURES |       \
+	 1ULL << VIRTIO_F_IOMMU_PLATFORM)
 
 static void virtio_scsi_dev_unregister_cb(void *io_device);
 static void virtio_scsi_dev_remove(struct virtio_scsi_dev *svdev,
