@@ -661,13 +661,20 @@ vvu_virtio_pci_free_virtqueues(struct vvu_socket *s)
 {
 	struct virtio_hw *hw = &s->pdev->hw;
 	int i;
+	int ret;
 
 	if (s->rxbuf_mz) {
-		rte_memzone_free(s->rxbuf_mz);
+		ret = rte_memzone_free(s->rxbuf_mz);
+		if(ret < 0) {
+			RTE_LOG(INFO, VHOST_CONFIG, "rte_memzone_free() for rxbuf failed\n");
+		}
 		s->rxbuf_mz = NULL;
 	}
 	if (s->txbuf_mz) {
-		rte_memzone_free(s->txbuf_mz);
+		ret = rte_memzone_free(s->txbuf_mz);
+		if(ret < 0) {
+			RTE_LOG(INFO, VHOST_CONFIG, "rte_memzone_free() for txbuf failed\n");
+		}
 		s->txbuf_mz = NULL;
 	}
 
@@ -677,7 +684,10 @@ vvu_virtio_pci_free_virtqueues(struct vvu_socket *s)
 		if (!vq)
 			continue;
 
-		rte_memzone_free(vq->mz);
+		ret = rte_memzone_free(vq->mz);
+		if(ret < 0) {
+			RTE_LOG(INFO, VHOST_CONFIG, "rte_memzone_free() for vq%d failed\n", i);
+		}
 		rte_free(vq);
 		hw->vqs[i] = NULL;
 	}
