@@ -205,7 +205,7 @@ vvu_vring_call(struct virtio_net *dev, struct vhost_virtqueue *vq)
 	uint16_t vq_idx = vq->vring_idx;
 
 	RTE_LOG(DEBUG, VHOST_CONFIG, "%s vq_idx %u\n", __func__, vq_idx);
-        fprintf(stderr, "rte_vhost/trans_virtio_vhost_user.c:203:vvu_vring_call: writing to doorbell for vring with index %d\n", vq_idx);
+
 	rte_write16(rte_cpu_to_le_16(vq_idx), &s->doorbells[vq_idx]);
 	return 0;
 }
