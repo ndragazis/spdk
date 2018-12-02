@@ -493,6 +493,7 @@ rte_vhost_vring_call(int vid, uint16_t vring_idx)
 {
 	struct virtio_net *dev;
 	struct vhost_virtqueue *vq;
+	int ret;
 
 	dev = get_device(vid);
 	if(!dev)
@@ -505,11 +506,7 @@ rte_vhost_vring_call(int vid, uint16_t vring_idx)
 	if (!vq)
 		return -1;
 
-	fprintf(stderr, "rte_vhost/vhost.c:507:rte_vhost_vring_call: calling transport specific vring_call with vring index %d\n", vring_idx);
-
-	int ret = dev->trans_ops->vring_call(dev, dev->virtqueue[vring_idx]);
+	ret = dev->trans_ops->vring_call(dev, dev->virtqueue[vring_idx]);
 	
-	fprintf(stderr, "rte_vhost/vhost.c:511:rte_vhost_vring_call: transport specific vring_call returned with %d\n", ret);
-
 	return ret;
 }
