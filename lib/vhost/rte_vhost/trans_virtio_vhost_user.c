@@ -36,6 +36,8 @@
 /*Just for the definition of struct spdk_pci_device*/
 #include "rte_vhost.h"
 
+int spdk_pci_device_detach(struct spdk_pci_device *pci_dev);
+
 /*
  * Data structures:
  *
@@ -912,7 +914,7 @@ vvu_pci_probe(void *probe_ctx __rte_unused,
 }
 
 static int
-vvu_pci_remove(struct rte_pci_device *pci_dev)
+vvu_pci_remove(struct spdk_pci_device *pci_dev)
 {
 	struct vvu_pci_device *pdev;
 
@@ -931,7 +933,8 @@ vvu_pci_remove(struct rte_pci_device *pci_dev)
 
 	TAILQ_REMOVE(&vvu_pci_device_list, pdev, next);
 	rte_free(pdev);
-	rte_pci_unmap_device(pci_dev);
+
+	spdk_pci_device_detach(pci_dev);
 
 	return 0;
 }
@@ -1001,7 +1004,11 @@ vvu_socket_cleanup(struct vhost_user_socket *vsocket)
 	vvu_virtio_pci_free_virtqueues(s);
 
 	s->pdev->s = NULL;
+
+	vvu_pci_remove(s->pdev->pci_dev);
+
 	s->pdev = NULL;
+
 }
 
 static int
