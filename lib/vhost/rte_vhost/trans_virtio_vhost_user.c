@@ -157,10 +157,10 @@ vvu_disconnect(struct vvu_socket *s)
 	uint32_t status;
 
 	if (conn) {
+		vhost_destroy_device(conn->device.vid);
+
 		if (vsocket->notify_ops->destroy_connection)
 			vsocket->notify_ops->destroy_connection(conn->device.vid);
-
-		vhost_destroy_device(conn->device.vid);
 	}
 
 	/* Make sure we're disconnected */
