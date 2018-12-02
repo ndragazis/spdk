@@ -85,7 +85,7 @@ static const char *vhost_message_str[VHOST_USER_MAX] = {
 	[VHOST_USER_NVME_START_STOP] = "VHOST_USER_NVME_START_STOP",
 	[VHOST_USER_NVME_IO_CMD] = "VHOST_USER_NVME_IO_CMD"
 };
-
+/*
 static uint64_t
 get_blk_size(int fd)
 {
@@ -95,7 +95,7 @@ get_blk_size(int fd)
 	ret = fstat(fd, &stat);
 	return ret == -1 ? (uint64_t)-1 : (uint64_t)stat.st_blksize;
 }
-
+*/
 static void
 free_mem_region(struct virtio_net *dev)
 {
