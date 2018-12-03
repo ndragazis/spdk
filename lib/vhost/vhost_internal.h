@@ -180,6 +180,8 @@ struct spdk_vhost_dev {
 
 struct spdk_vhost_dev *spdk_vhost_dev_find(const char *ctrlr_name);
 
+struct spdk_vhost_dev *spdk_vhost_dev_find_by_path(const char *ctrlr_name);
+
 void *spdk_vhost_gpa_to_vva(struct spdk_vhost_dev *vdev, uint64_t addr, uint64_t len);
 
 uint16_t spdk_vhost_vq_avail_ring_get(struct spdk_vhost_virtqueue *vq, uint16_t *reqs,
