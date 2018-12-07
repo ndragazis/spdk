@@ -179,7 +179,7 @@ int vhost_user_msg_handler(int vid, struct VhostUserMsg *);
 void add_guest_pages(struct virtio_net *, struct rte_vhost_mem_region *, uint64_t);
 
 /* socket.c */
-int read_fd_message(int sockfd, char *buf, int buflen, int *fds, int fd_num);
-int send_fd_message(int sockfd, void *buf, int buflen, int *fds, int fd_num);
+//int read_fd_message(int sockfd, char *buf, int buflen, int *fds, int fd_num);
+//int send_fd_message(int sockfd, void *buf, int buflen, int *fds, int fd_num);
 
 #endif

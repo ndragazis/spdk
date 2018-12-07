@@ -120,6 +120,7 @@ static struct vhost_user vhost_user = {
 };
 
 /* return bytes# of read on success or negative val on failure. */
+/*
 int
 read_fd_message(int sockfd, char *buf, int buflen, int *fds, int fd_num)
 {
@@ -161,7 +162,8 @@ read_fd_message(int sockfd, char *buf, int buflen, int *fds, int fd_num)
 
 	return ret;
 }
-
+*/
+/*
 int
 send_fd_message(int sockfd, void *buf, int buflen, int *fds, int fd_num)
 {
@@ -209,7 +211,7 @@ send_fd_message(int sockfd, void *buf, int buflen, int *fds, int fd_num)
 
 	return ret;
 }
-
+*/
 /*
 static void
 vhost_user_add_connection(int fd, struct vhost_user_socket *vsocket)

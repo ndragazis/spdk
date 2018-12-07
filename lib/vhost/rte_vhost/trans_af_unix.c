@@ -78,7 +78,6 @@ static int vhost_user_start_client(struct vhost_user_socket *vsocket);
 static void vhost_user_read_cb(int connfd, void *dat, int *remove);
 
 /* return bytes# of read on success or negative val on failure. */
-/*
 static int
 read_fd_message(int sockfd, char *buf, int buflen, int *fds, int fd_num)
 {
@@ -120,8 +119,7 @@ read_fd_message(int sockfd, char *buf, int buflen, int *fds, int fd_num)
 
 	return ret;
 }
-*/
-/*
+
 static int
 send_fd_message(int sockfd, void *buf, int buflen, int *fds, int fd_num)
 {
@@ -144,6 +142,11 @@ send_fd_message(int sockfd, void *buf, int buflen, int *fds, int fd_num)
 		msgh.msg_control = control;
 		msgh.msg_controllen = sizeof(control);
 		cmsg = CMSG_FIRSTHDR(&msgh);
+		if (cmsg == NULL) {
+			RTE_LOG(ERR, VHOST_CONFIG,  "cmsg == NULL\n");
+			errno = EINVAL;
+			return -1;
+		}
 		cmsg->cmsg_len = CMSG_LEN(fdsize);
 		cmsg->cmsg_level = SOL_SOCKET;
 		cmsg->cmsg_type = SCM_RIGHTS;
@@ -164,7 +167,7 @@ send_fd_message(int sockfd, void *buf, int buflen, int *fds, int fd_num)
 
 	return ret;
 }
-*/
+
 static int
 af_unix_send_reply(struct virtio_net *dev, struct VhostUserMsg *msg)
 {
