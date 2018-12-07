@@ -1179,13 +1179,11 @@ start_device(int vid)
 	 *
 	 * Tested on QEMU 2.10.91 and 2.11.50.
 	 */
-	/*
+
 	for (i = 0; i < vdev->max_queues; i++) {
-		if (vdev->virtqueue[i].vring.callfd != -1) {
-			eventfd_write(vdev->virtqueue[i].vring.callfd, (eventfd_t)1);
-		}
+		rte_vhost_vring_call(vdev->vid, vdev->virtqueue[i].vring_idx);
 	}
-	*/
+
 
 	vdev->lcore = spdk_vhost_allocate_reactor(vdev->cpumask);
 	spdk_vhost_dev_mem_register(vdev);
