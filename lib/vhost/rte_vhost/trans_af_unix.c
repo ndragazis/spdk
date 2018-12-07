@@ -336,14 +336,14 @@ err:
 		close(connfd);
 		*remove = 1;
 
-		if (vsocket->notify_ops->destroy_connection)
-			vsocket->notify_ops->destroy_connection(conn->device.vid);
-
 		pthread_mutex_lock(&s->conn_mutex);
 		TAILQ_REMOVE(&s->conn_list, conn, next);
 		pthread_mutex_unlock(&s->conn_mutex);
 
 		vhost_destroy_device(conn->device.vid);
+
+		if (vsocket->notify_ops->destroy_connection)
+			vsocket->notify_ops->destroy_connection(conn->device.vid);
 
 		if (vsocket->reconnect) {
 			create_unix_socket(vsocket);
